@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Connect 4 - elswg</title>
+    <title>Ronin Connect 4 - Cyber Y2K Pipeline</title>
     
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     
@@ -1101,8 +1101,6 @@
     }
 
     function executeChronoTimeoutAuthorityPassage() {
-        isLocalPlayerTurnTurnActive = false;
-        
         // Broadcast structural timeout transaction over the active link line
         if (peerDataStreamLinkChannel) {
             peerDataStreamLinkChannel.send({ type: 'chrono_expiry_swap' });
@@ -1112,6 +1110,8 @@
     }
 
     function processTurnTimeoutAlternationEvent() {
+        // FIXED: Swaps local active matrix control flag status instantly across client networks to keep both ends in sync
+        isLocalPlayerTurnTurnActive = !isLocalPlayerTurnTurnActive;
         appendDispatchedMessageToTerminalHistory("System", "Turn duration expired. Swapping matrix control.");
         restartActiveChronoTurnTimerEngine();
     }
@@ -1425,7 +1425,7 @@
 
     /* ==========================================================================
        MULTIMEDIA AUDIO RECORDING CAPTURE SYSTEM CODE MODULE ENGINE
-       ========================================================================== */
+       ========================================================================= */
     function initializeMicrophoneAudioCaptureEngine() {
         const uiMicrophoneToggleButton = document.getElementById('microphoneAudioCaptureButton');
         
