@@ -1,0 +1,1508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Ronin Connect 4 - Cyber Y2K Pipeline</title>
+    
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    
+    <style>
+        /* --- CORE CONFIGURATION VARIABLES --- */
+        :root {
+            --accent: #7C5CFF;
+            --accent-rgb: 124, 92, 255;
+            --bg-darker: #030306;
+            --bg-base: #07080c;
+            --bg-card: rgba(13, 13, 22, 0.75);
+            --border-glow: rgba(124, 92, 255, 0.4);
+            --text-main: #f1f1f6;
+            --text-muted: #6e6e85;
+            
+            --player-local: #7C5CFF;
+            --player-remote: #00ffcc;
+            --player-empty: #090a12;
+            --cyber-grid: rgba(124, 92, 255, 0.25);
+        }
+
+        /* --- GLOBAL RESET PIPELINES --- */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        input[type="text"] {
+            -webkit-user-select: text;
+            user-select: text;
+        }
+
+        html, body {
+            background-color: var(--bg-darker);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        /* --- BACKGROUND RENDERING & MOUSE INTERACTION SYSTEMS --- */
+        #interactive-mesh-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* BARELY VISIBLE FOGGY/CLOUDY CURSOR LAYER UNDERNEATH SCENE ELEMENTS */
+        #cursor-glow-element {
+            position: fixed;
+            width: 450px;
+            height: 450px;
+            background: radial-gradient(circle, rgba(124, 92, 255, 0.04) 0%, rgba(124, 92, 255, 0.01) 45%, rgba(124, 92, 255, 0) 70%);
+            pointer-events: none;
+            border-radius: 50%;
+            z-index: 1;
+            transform: translate(-50%, -50%);
+            mix-blend-mode: screen;
+            filter: blur(20px);
+        }
+
+        /* ATMOSPHERIC FOG SHIFT LAYOUT FLUID */
+        .fog-overlay-mask {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="3" stitchTiles="stitch"/></filter><rect width="200" height="200" filter="url(%23n)" opacity="0.018"/></svg>');
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* --- APPLICATION CONTAINER WORKSPACE --- */
+        .master-workspace {
+            position: relative;
+            z-index: 3;
+            display: flex;
+            width: 100%;
+            max-width: 1200px;
+            height: 100%;
+            max-height: 95vh;
+            padding: 24px;
+            gap: 32px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* --- PROFILE CONFIGURATION NODES --- */
+        .identity-container {
+            position: absolute;
+            top: 24px;
+            left: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 100;
+        }
+
+        .identity-badge {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: var(--bg-card);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid rgba(124, 92, 255, 0.25);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9);
+        }
+
+        .identity-avatar {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent), #5633d6);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-main);
+            font-weight: 800;
+            font-size: 1rem;
+            box-shadow: 0 0 10px rgba(124, 92, 255, 0.4);
+        }
+
+        .identity-input {
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            font-weight: 700;
+            font-size: 0.9rem;
+            outline: none;
+            width: 130px;
+            letter-spacing: 0.5px;
+        }
+
+        /* --- DEEP SHADOW SEVERE POP OVERLAYS --- */
+        .ronin-panel {
+            background: var(--bg-card);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(124, 92, 255, 0.4);
+            border-radius: 12px;
+            padding: 44px;
+            width: 100%;
+            max-width: 480px;
+            /* SEVERE POP DEEP SHADOW MATRIX CONFIG */
+            box-shadow: 0 35px 70px -10px rgba(0, 0, 0, 0.95), 
+                        0 20px 40px -15px rgba(0, 0, 0, 0.9), 
+                        0 0 40px 2px rgba(124, 92, 255, 0.12);
+            position: relative;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+
+        .panel-header {
+            text-align: center;
+            margin-bottom: 36px;
+        }
+
+        .panel-header h1 {
+            color: var(--text-main);
+            font-size: 2.2rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            text-shadow: 0 0 15px rgba(124, 92, 255, 0.6);
+        }
+
+        .panel-header p {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-top: 8px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        /* VIEWS SYSTEM STAGING */
+        .view-layer {
+            display: none;
+        }
+
+        .view-layer.active {
+            display: block;
+        }
+
+        /* --- COMPONENT STYLING FOR BUTTONS & INPUTS --- */
+        .input-group-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .ronin-input {
+            background-color: rgba(4, 4, 8, 0.95);
+            border: 1px solid rgba(124, 92, 255, 0.3);
+            color: var(--text-main);
+            padding: 14px 20px;
+            border-radius: 6px;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            width: 100%;
+        }
+
+        .ronin-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 14px rgba(124, 92, 255, 0.3);
+        }
+
+        .code-entry-field {
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 6px;
+            font-weight: 700;
+            font-size: 1.3rem;
+        }
+
+        .ronin-btn {
+            background: var(--accent);
+            color: var(--text-main);
+            border: none;
+            padding: 16px 24px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            border-radius: 6px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            width: 100%;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 4px 16px rgba(124, 92, 255, 0.3);
+        }
+
+        .ronin-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(124, 92, 255, 0.45);
+            background: #8b6eff;
+        }
+
+        .ronin-btn:active {
+            transform: translateY(1px);
+        }
+
+        .ronin-btn.btn-secondary {
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            box-shadow: none;
+        }
+
+        .ronin-btn.btn-secondary:hover {
+            background: rgba(124, 92, 255, 0.1);
+            color: var(--text-main);
+        }
+
+        .divider-label {
+            font-size: 0.7rem;
+            font-weight: 800;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .code-display-block {
+            font-size: 2.6rem;
+            font-weight: 900;
+            color: #00ffcc;
+            letter-spacing: 6px;
+            text-align: center;
+            margin: 24px 0;
+            text-shadow: 0 0 20px rgba(0, 255, 204, 0.4);
+            font-family: monospace;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .code-display-block:hover {
+            border: 1px solid rgba(0, 255, 204, 0.3);
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.15);
+            text-shadow: 0 0 25px rgba(0, 255, 204, 0.7);
+        }
+
+        /* --- ACTIVE IN-GAME PIPELINE VIEWPORTS --- */
+        .game-interface-container {
+            display: none;
+            width: 100%;
+            height: 100%;
+            gap: 32px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .board-viewport-pane {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            flex: 1.2;
+            position: relative;
+        }
+
+        .turn-status-banner {
+            font-size: 1.5rem;
+            font-weight: 900;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            min-height: 38px;
+            text-shadow: 0 0 12px rgba(124, 92, 255, 0.3);
+        }
+
+        .turn-status-banner.local-turn { color: var(--player-local); }
+        .turn-status-banner.remote-turn { color: var(--player-remote); }
+        .turn-status-banner.neutral-state { color: var(--text-main); }
+
+        /* --- 10S GAME MATCH CHRONO BAR --- */
+        .chrono-progress-wrapper {
+            width: min(540px, 90vw);
+            height: 4px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 6px;
+        }
+
+        .chrono-progress-fill {
+            height: 100%;
+            width: 100%;
+            background: var(--accent);
+            box-shadow: 0 0 8px var(--accent);
+            transform-origin: left;
+            transition: transform 0.1s linear;
+        }
+
+        /* --- 7x5 CYBER Y2K MATRIX BOARD GRID --- */
+        .connect4-matrix-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            grid-template-rows: repeat(5, 1fr);
+            gap: 0px; /* Zero explicit gap to enforce structural intersection lines layout */
+            width: min(540px, 90vw);
+            height: min(390px, 65vw);
+            background-color: rgba(6, 6, 12, 0.9);
+            border: 2px solid var(--accent);
+            border-radius: 8px;
+            padding: 8px;
+            /* DEEP SHADOW POP UP INJECTION CONFIG */
+            box-shadow: 0 40px 80px -15px rgba(0, 0, 0, 0.95), 
+                        0 0 50px rgba(124, 92, 255, 0.15);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .grid-column-trigger {
+            position: absolute;
+            top: 0;
+            width: calc((100% - 16px) / 7);
+            height: 100%;
+            cursor: pointer;
+            background: transparent;
+            z-index: 10;
+            transition: background 0.2s ease;
+        }
+
+        .grid-column-trigger:hover {
+            background: rgba(124, 92, 255, 0.05);
+        }
+
+        /* STRUCTURAL CYBER 2K CROSS GRID LINES LAYOUT HOOK */
+        .matrix-cell {
+            background-color: transparent;
+            position: relative;
+            overflow: hidden;
+            z-index: 2;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid var(--cyber-grid); /* Strict Cyber Grid Border Allocation Schema */
+        }
+
+        .token-placement-well {
+            width: 82%;
+            height: 82%;
+            border-radius: 50%;
+            background-color: var(--player-empty);
+            box-shadow: inset 0 6px 12px rgba(0, 0, 0, 0.95);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .token-disk {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            transform: translateY(-150%);
+            transition: transform 0.5s cubic-bezier(0.6, -0.28, 0.735, 0.045);
+        }
+
+        .token-disk.dropped {
+            transform: translateY(0);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.15);
+        }
+
+        .token-disk.local-color {
+            background: radial-gradient(circle at 35% 35%, #a38aff 0%, var(--player-local) 55%, #391fad 100%);
+            box-shadow: 0 0 16px rgba(124, 92, 255, 0.75), inset 0 -4px 8px rgba(0,0,0,0.5);
+        }
+
+        .token-disk.remote-color {
+            background: radial-gradient(circle at 35% 35%, #a6fffa 0%, var(--player-remote) 55%, #008f72 100%);
+            box-shadow: 0 0 16px rgba(0, 255, 204, 0.75), inset 0 -4px 8px rgba(0,0,0,0.5);
+        }
+
+        /* --- VECTOR OVERLAY FOR NEON CONNECT FOUR WIN LINES HIGHLIGHTS --- */
+        #victoryVectorOverlayCanvas {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            width: calc(100% - 16px);
+            height: calc(100% - 16px);
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        /* --- COMMUNICATIONS COMMS INTERFACE --- */
+        .comms-viewport-pane {
+            width: 350px;
+            height: 480px;
+            background: var(--bg-card);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(124, 92, 255, 0.3);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            /* FLOATING SEVERE POP OUT EFFECT shadow */
+            box-shadow: 0 35px 70px -10px rgba(0, 0, 0, 0.95),
+                        0 0 30px rgba(124, 92, 255, 0.08);
+        }
+
+        .chat-history-vault {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background-color: rgba(3, 3, 6, 0.6);
+        }
+
+        .comms-message {
+            padding: 10px 14px;
+            border-radius: 6px;
+            max-width: 85%;
+            font-size: 0.88rem;
+            word-break: break-word;
+            line-height: 1.4;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .comms-message.local-dispatch {
+            background-color: var(--accent);
+            color: var(--text-main);
+            align-self: flex-end;
+            border-bottom-right-radius: 1px;
+        }
+
+        .comms-message.remote-dispatch {
+            background-color: #12131f;
+            color: var(--text-main);
+            align-self: flex-start;
+            border-bottom-left-radius: 1px;
+            border: 1px solid rgba(124, 92, 255, 0.15);
+        }
+
+        .comms-message.system-dispatch {
+            background-color: transparent;
+            color: #ff3b6b;
+            font-style: italic;
+            align-self: center;
+            text-align: center;
+            font-size: 0.8rem;
+            box-shadow: none;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .chat-action-bar {
+            display: flex;
+            padding: 12px;
+            background-color: rgba(8, 9, 15, 0.95);
+            gap: 10px;
+            border-top: 1px solid rgba(124, 92, 255, 0.2);
+        }
+
+        .chat-action-bar input {
+            flex: 1;
+            background-color: var(--bg-darker);
+            border: 1px solid rgba(124, 92, 255, 0.2);
+            color: white;
+            padding: 12px;
+            border-radius: 4px;
+            outline: none;
+            font-size: 15px;
+        }
+
+        .voice-mic-trigger {
+            width: 44px;
+            height: 44px;
+            border-radius: 4px;
+            background-color: #12131f;
+            border: 1px solid rgba(124, 92, 255, 0.25);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+            transition: all 0.2s ease;
+        }
+
+        .voice-mic-trigger.recording-state {
+            background-color: #ff0055;
+            color: white;
+            border-color: #ff0055;
+            animation: microphonePulseAnimation 1s infinite alternate;
+        }
+
+        .voice-mic-trigger:disabled {
+            opacity: 0.2;
+            cursor: not-allowed;
+        }
+
+        .voice-mic-trigger svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+
+        /* --- SAFE SPACING STRUCTURE SYSTEM FOR BOTTOM MOBILE NAVIGATION BARS --- */
+        .mobile-terminal-chrome-spacer {
+            display: none;
+            width: 100%;
+            height: 95px;
+            background-color: var(--bg-darker);
+        }
+
+        @keyframes microphonePulseAnimation {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 0, 85, 0.5); }
+            100% { transform: scale(1.06); box-shadow: 0 0 12px 3px rgba(255, 0, 85, 0.3); }
+        }
+
+        /* --- RESPONSIVE LAYOUT MATRIX (MOBILE PORTRAIT OVERRIDES) --- */
+        @media (max-width: 768px) {
+            .identity-container {
+                top: 12px;
+                left: 12px;
+                position: fixed;
+            }
+            
+            body {
+                align-items: flex-start;
+            }
+
+            .master-workspace {
+                flex-direction: column;
+                height: auto;
+                min-height: 100vh;
+                padding: 80px 16px 0px 16px;
+                justify-content: flex-start;
+            }
+
+            .ronin-panel {
+                margin-top: 16px;
+                padding: 24px;
+            }
+
+            .game-interface-container {
+                flex-direction: column;
+                height: auto;
+                width: 100%;
+                justify-content: flex-start;
+                display: none;
+            }
+
+            .board-viewport-pane {
+                flex: none;
+                width: 100%;
+            }
+
+            .comms-viewport-pane {
+                display: flex !important;
+                width: 100%;
+                max-width: 540px;
+                height: 290px;
+                margin-top: 16px;
+            }
+
+            .mobile-terminal-chrome-spacer {
+                display: block;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="interactive-mesh-canvas"></canvas>
+<div id="cursor-glow-element"></div>
+<div class="fog-overlay-mask"></div>
+
+<div class="identity-container">
+    <div class="identity-badge">
+        <div class="identity-avatar" id="avatarCharacterNode">G</div>
+        <input type="text" id="usernameSignatureInput" class="identity-input" value="Guest_7701" maxlength="12" oninput="processIdentityValidation()">
+    </div>
+</div>
+
+<div class="master-workspace">
+    <div id="lobbyAccessPanel" class="ronin-panel">
+        <div class="panel-header">
+            <h1>Connect 4</h1>
+            <p id="lobbyFeedbackSubtitle">game made by elswg</p>
+        </div>
+
+        <div id="menuViewLayer" class="view-layer active">
+            <div class="input-group-stack">
+                <button class="ronin-btn" onclick="triggerHostLobbyPipeline()">Create Lobby</button>
+                <div class="divider-label">OR</div>
+                <input type="text" id="targetLobbyKeyField" class="ronin-input code-entry-field" placeholder="LOBBY CODE" maxlength="6">
+                <button class="ronin-btn btn-secondary" onclick="triggerClientJoinPipeline()">Join Lobby</button>
+            </div>
+        </div>
+
+        <div id="hostWaitingLayer" class="view-layer">
+            <p style="font-size:0.8rem; text-align:center; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px;">your room code:</p>
+            <div class="code-display-block" id="generatedRoomKeyDisplay" onclick="navigator.clipboard.writeText(this.innerText); document.getElementById('networkDiagnosticStatusNode').innerText = 'Room code copied to clipboard';">------</div>
+            <button class="ronin-btn btn-secondary" onclick="abortSignalingPipeline()">return</button>
+        </div>
+
+        <div id="networkDiagnosticStatusNode" style="text-align:center; font-size:0.75rem; color: var(--accent); margin-top:24px; font-weight:700; letter-spacing:1px; text-transform:uppercase;">added voice message in chat</div>
+    </div>
+
+    <div id="activeMatchplayViewport" class="game-interface-container">
+        <div class="board-viewport-pane">
+            <div id="matchplayTurnIndicator" class="turn-status-banner neutral-state">HANDSHAKE SEQUENCE INITIALIZING</div>
+            
+            <div class="chrono-progress-wrapper">
+                <div id="turnChronoProgressFillBar" class="chrono-progress-fill"></div>
+            </div>
+
+            <div class="connect4-matrix-grid" id="gameMatrixInteractiveGrid">
+                </div>
+            
+            <button id="postGameExitTrigger" class="ronin-btn btn-secondary" style="display:none; max-width:240px; margin-top: 10px;" onclick="location.reload()">Exit / Main menu</button>
+        </div>
+
+        <div class="comms-viewport-pane" id="matchplayCommsTerminal">
+            <div id="chatHistoryOutputContainer" class="chat-history-vault">
+                <div class="comms-message system-dispatch">chat</div>
+            </div>
+            <div class="chat-action-bar" id="chatInteractionRow">
+                <input type="text" id="textMessagePayloadInputField" placeholder="send message..." onkeydown="if(event.key==='Enter') executeTextMessageTransmission()">
+                <button id="microphoneAudioCaptureButton" class="voice-mic-trigger" title="Hold/Toggle Voice Stream Engine" disabled>
+                    <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.42 2.72 6.23 6 6.72V21h2v-3.28c3.28-.49 6-3.3 6-6.72h-1.7z"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="mobile-terminal-chrome-spacer"></div>
+    </div>
+</div>
+
+<script>
+    /* ==========================================================================
+       ENGINE LOGISTICS STAGE: VARIABLE SCOPES AND CONTROL MATRIX CONFIGURATIONS
+       ========================================================================== */
+    let localPlayerAliasSignature = "Guest_0000";
+    let p2pSignalingInstanceNode = null;
+    let peerDataStreamLinkChannel = null;
+    
+    // Core Board Structural Constants (7 Horizontal x 5 Vertical Grid Coordinates)
+    const GRID_COLUMNS_COUNT = 7;
+    const GRID_ROWS_COUNT = 5;
+    
+    // State Tracking Buffers
+    let connect4LogicalBoardArray = [];
+    let isLocalPlayerTurnTurnActive = false;
+    let isPipelineEngineHost = false;
+    let activeMatchplayLifecycleState = false;
+    
+    // Token Assignment Matrix System Definitions
+    let localPlayerIdentityMarkerIndex = 1;  // Host gets 1
+    let remotePlayerIdentityMarkerIndex = 2; // Client gets 2
+    
+    // Dynamic Turn Turn Timer Mechanics (10s AFK Rule Bounds)
+    let turnCountTimerRefInterval = null;
+    let currentChronoTicksElapsed = 0;
+    const MATCH_CHRONO_MAX_SECONDS_BOUND = 10;
+    
+    // Multimedia Audio Stream State Buffers
+    let softwareMediaRecorderInstance = null;
+    let binaryAudioVoiceChunks = [];
+    let isRecordingSessionActive = false;
+
+    /* ==========================================================================
+       INITIALIZATION ROUTINES: DEPLOY CORE ENVIRONMENT HOOKS
+       ========================================================================== */
+    window.addEventListener('DOMContentLoaded', () => {
+        executeBackgroundMeshAnimationEngine();
+        synchronizeUserSignaturePersistenceData();
+        buildConnect4StructuralMatrixLayout();
+    });
+
+    /* ==========================================================================
+       INTERACTIVE MOUSE MATRIX & CANVAS INTERACTION ANIMATION PIPELINE
+       ========================================================================== */
+    function executeBackgroundMeshAnimationEngine() {
+        const glowElement = document.getElementById('cursor-glow-element');
+        const canvas = document.getElementById('interactive-mesh-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let canvasWidth = canvas.width = window.innerWidth;
+        let canvasHeight = canvas.height = window.innerHeight;
+        
+        window.addEventListener('resize', () => {
+            canvasWidth = canvas.width = window.innerWidth;
+            canvasHeight = canvas.height = window.innerHeight;
+        });
+
+        // Track cursor coordinates
+        let mouseCoordinates = { x: canvasWidth / 2, y: canvasHeight / 2 };
+        
+        window.addEventListener('mousemove', (event) => {
+            mouseCoordinates.x = event.clientX;
+            mouseCoordinates.y = event.clientY;
+            
+            // Sync glow ring follow layer position coords
+            glowElement.style.left = event.clientX + 'px';
+            glowElement.style.top = event.clientY + 'px';
+        });
+
+        // Initialize geometric nodes matrix
+        const nodeNetworkPool = [];
+        const maxNodesThreshold = 35;
+        
+        for (let i = 0; i < maxNodesThreshold; i++) {
+            nodeNetworkPool.push({
+                x: Math.random() * canvasWidth,
+                y: Math.random() * canvasHeight,
+                vx: (Math.random() - 0.5) * 0.4,
+                vy: (Math.random() - 0.5) * 0.4,
+                radius: Math.random() * 1.5 + 1
+            });
+        }
+
+        function renderFrameLoopRoutine() {
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+            ctx.fillStyle = "rgba(124, 92, 255, 0.08)";
+            ctx.strokeStyle = "rgba(124, 92, 255, 0.02)";
+            
+            // Dynamic updates for points positioning vectors
+            for (let i = 0; i < maxNodesThreshold; i++) {
+                let n = nodeNetworkPool[i];
+                n.x += n.vx;
+                n.y += n.vy;
+                
+                if (n.x < 0 || n.x > canvasWidth) n.vx *= -1;
+                if (n.y < 0 || n.y > canvasHeight) n.vy *= -1;
+                
+                ctx.beginPath();
+                ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Track interactive proximity loops against current cursor position coordinates
+                let dx = n.x - mouseCoordinates.x;
+                let dy = n.y - mouseCoordinates.y;
+                let cursorDistance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (cursorDistance < 150) {
+                    ctx.strokeStyle = `rgba(124, 92, 255, ${0.06 * (1 - cursorDistance / 150)})`;
+                    ctx.beginPath();
+                    ctx.moveTo(n.x, n.y);
+                    ctx.lineTo(mouseCoordinates.x, mouseCoordinates.y);
+                    ctx.stroke();
+                }
+
+                // Node-to-node link validation checking paths
+                for (let j = i + 1; j < maxNodesThreshold; j++) {
+                    let n2 = nodeNetworkPool[j];
+                    let dnx = n.x - n2.x;
+                    let dny = n.y - n2.y;
+                    let interNodeDistance = Math.sqrt(dnx * dnx + dny * dny);
+                    
+                    if (interNodeDistance < 90) {
+                        ctx.strokeStyle = `rgba(124, 92, 255, ${0.03 * (1 - interNodeDistance / 90)})`;
+                        ctx.beginPath();
+                        ctx.moveTo(n.x, n.y);
+                        ctx.lineTo(n2.x, n2.y);
+                        ctx.stroke();
+                    }
+                }
+            }
+            
+            requestAnimationFrame(renderFrameLoopRoutine);
+        }
+        
+        requestAnimationFrame(renderFrameLoopRoutine);
+    }
+
+    /* ==========================================================================
+       USER SIGNATURE DATA MANAGERS: VALIDATE IDENTITY BUFFERS ("GUEST" ENGINE)
+       ========================================================================== */
+    function synchronizeUserSignaturePersistenceData() {
+        let cachedSignature = localStorage.getItem('ronin_engine_alias_signature');
+        // RECONFIGURED PIPELINE TO AUTO FORMAT SUB STRINGS TO GUEST IDENT VALUES
+        if (!cachedSignature || !cachedSignature.startsWith("Guest_")) {
+            cachedSignature = "Guest_" + Math.floor(1000 + Math.random() * 9000);
+        }
+        document.getElementById('usernameSignatureInput').value = cachedSignature;
+        localPlayerAliasSignature = cachedSignature;
+        document.getElementById('avatarCharacterNode').innerText = cachedSignature.charAt(0).toUpperCase();
+    }
+
+    function processIdentityValidation() {
+        let inputTargetValue = document.getElementById('usernameSignatureInput').value.trim();
+        if (!inputTargetValue) inputTargetValue = "Guest_Node";
+        localPlayerAliasSignature = inputTargetValue;
+        document.getElementById('avatarCharacterNode').innerText = inputTargetValue.charAt(0).toUpperCase();
+        localStorage.setItem('ronin_engine_alias_signature', inputTargetValue);
+    }
+
+    /* ==========================================================================
+       GRID SYSTEM FOUNDATION MANAGER: BUILD AND MODEL DEPLOYMENT (7x5 LINE MAP)
+       ========================================================================== */
+    function resetConnect4LogicalDataMatrix() {
+        connect4LogicalBoardArray = [];
+        for (let r = 0; r < GRID_ROWS_COUNT; r++) {
+            let columnRowArray = [];
+            for (let c = 0; c < GRID_COLUMNS_COUNT; c++) {
+                columnRowArray.push(0);
+            }
+            connect4LogicalBoardArray.push(columnRowArray);
+        }
+    }
+
+    function buildConnect4StructuralMatrixLayout() {
+        resetConnect4LogicalDataMatrix();
+        const displayGridContainer = document.getElementById('gameMatrixInteractiveGrid');
+        displayGridContainer.innerHTML = '';
+        
+        // Loop structural columns configuration setup inside UI layouts layer
+        for (let r = 0; r < GRID_ROWS_COUNT; r++) {
+            for (let c = 0; c < GRID_COLUMNS_COUNT; c++) {
+                const cellStructureNode = document.createElement('div');
+                cellStructureNode.className = 'matrix-cell';
+                cellStructureNode.id = `cell_coordinate_${r}_${c}`;
+                
+                const tokenWellNode = document.createElement('div');
+                tokenWellNode.className = 'token-placement-well';
+                
+                const virtualDiskNode = document.createElement('div');
+                virtualDiskNode.className = 'token-disk';
+                virtualDiskNode.id = `disk_coordinate_${r}_${c}`;
+                
+                tokenWellNode.appendChild(virtualDiskNode);
+                cellStructureNode.appendChild(tokenWellNode);
+                displayGridContainer.appendChild(cellStructureNode);
+            }
+        }
+
+        // DEPLOY DECORATIVE CANVAS INSIDE MATRIX LAYOUT FRAME TO INJECT HIGHLIGHT LINE TRACKS
+        const winHighlightCanvas = document.createElement('canvas');
+        winHighlightCanvas.id = "victoryVectorOverlayCanvas";
+        displayGridContainer.appendChild(winHighlightCanvas);
+
+        // Establish the invisible, precise vertical tracking interaction column targets
+        for (let c = 0; c < GRID_COLUMNS_COUNT; c++) {
+            const columnTargetHitbox = document.createElement('div');
+            columnTargetHitbox.className = 'grid-column-trigger';
+            columnTargetHitbox.style.left = `calc(8px + ${c} * ((100% - 16px) / ${GRID_COLUMNS_COUNT}))`;
+            
+            columnTargetHitbox.addEventListener('click', () => {
+                executeLocalColumnSelectionAction(c);
+            });
+            
+            displayGridContainer.appendChild(columnTargetHitbox);
+        }
+    }
+
+    /* ==========================================================================
+       P2P ROUTING SYSTEM MODULES: PEERJS SIGNAL CHANNELS ENGINE MANAGEMENT
+       ========================================================================= */
+    function switchActiveLobbyViewLayer(targetViewKey) {
+        document.querySelectorAll('.view-layer').forEach(layer => layer.classList.remove('active'));
+        const dynamicFeedbackSubtitle = document.getElementById('lobbyFeedbackSubtitle');
+        
+        if (targetViewKey === 'main') {
+            document.getElementById('menuViewLayer').classList.add('active');
+            dynamicFeedbackSubtitle.innerText = "game made by elswg";
+        } else if (targetViewKey === 'host-wait') {
+            document.getElementById('hostWaitingLayer').classList.add('active');
+            dynamicFeedbackSubtitle.innerText = "lobbiez...";
+        }
+    }
+
+    function generateCryptographicRoomKeyToken() {
+        const alphabetDictionaryToken = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        let roomTokenStringOutput = "";
+        for (let i = 0; i < 6; i++) {
+            roomTokenStringOutput += alphabetDictionaryToken.charAt(Math.floor(Math.random() * alphabetDictionaryToken.length));
+        }
+        return roomTokenStringOutput;
+    }
+
+    function instantiateSignalingNetworkNodeInstance(forcedNodeIdentityKey = null) {
+        document.getElementById('networkDiagnosticStatusNode').innerText = "Requesting proxy link assignments...";
+        if (p2pSignalingInstanceNode) p2pSignalingInstanceNode.destroy();
+        
+        p2pSignalingInstanceNode = new Peer(forcedNodeIdentityKey);
+
+        p2pSignalingInstanceNode.on('open', (id) => {
+            document.getElementById('networkDiagnosticStatusNode').innerText = "elzwg on github.";
+        });
+
+        p2pSignalingInstanceNode.on('connection', (inboundDataLink) => {
+            if (peerDataStreamLinkChannel) { 
+                inboundDataLink.close(); 
+                return; 
+            }
+            
+            peerDataStreamLinkChannel = inboundDataLink;
+            isPipelineEngineHost = true;
+            isLocalPlayerTurnTurnActive = true;
+            
+            bindEngineDataChannelEvents();
+            engageActivePlaygroundInterface();
+        });
+
+        p2pSignalingInstanceNode.on('error', (err) => {
+            console.error("Signaling core validation tracking alert flag:", err);
+            document.getElementById('networkDiagnosticStatusNode').innerText = "Route allocation token failure.";
+        });
+    }
+
+    function triggerHostLobbyPipeline() {
+        const alphaVerificationKeyToken = generateCryptographicRoomKeyToken();
+        switchActiveLobbyViewLayer('host-wait');
+        document.getElementById('generatedRoomKeyDisplay').innerText = alphaVerificationKeyToken;
+        instantiateSignalingNetworkNodeInstance(alphaVerificationKeyToken);
+    }
+
+    function triggerClientJoinPipeline() {
+        const targetedLobbyTokenKey = document.getElementById('targetLobbyKeyField').value.toUpperCase().trim();
+        if (targetedLobbyTokenKey.length !== 6) {
+            document.getElementById('networkDiagnosticStatusNode').innerText = "Token metrics fault: 6 chars expected.";
+            return;
+        }
+        
+        isPipelineEngineHost = false;
+        isLocalPlayerTurnTurnActive = false;
+        
+        document.getElementById('networkDiagnosticStatusNode').innerText = "Locating target address coordinate...";
+        
+        if (!p2pSignalingInstanceNode) {
+            p2pSignalingInstanceNode = new Peer();
+            p2pSignalingInstanceNode.on('open', () => {
+                executeDirectHandshakePipelineLink(targetedLobbyTokenKey);
+            });
+        } else {
+            executeDirectHandshakePipelineLink(targetedLobbyTokenKey);
+        }
+    }
+
+    function executeDirectHandshakePipelineLink(targetIdentityRoomToken) {
+        peerDataStreamLinkChannel = p2pSignalingInstanceNode.connect(targetIdentityRoomToken);
+
+        peerDataStreamLinkChannel.on('open', () => {
+            bindEngineDataChannelEvents();
+            engageActivePlaygroundInterface();
+        });
+
+        peerDataStreamLinkChannel.on('error', (err) => {
+            document.getElementById('networkDiagnosticStatusNode').innerText = "Handshake sync timeout fault.";
+        });
+    }
+
+    function abortSignalingPipeline() {
+        if (p2pSignalingInstanceNode) {
+            p2pSignalingInstanceNode.destroy();
+            p2pSignalingInstanceNode = null;
+        }
+        peerDataStreamLinkChannel = null;
+        switchActiveLobbyViewLayer('main');
+        document.getElementById('networkDiagnosticStatusNode').innerText = "+added voice message in chats";
+    }
+
+    /* ==========================================================================
+       DATA CHANNEL LINK STRUCTS: INBOUND AND OUTBOUND STREAM ROUTERS
+       ========================================================================== */
+    function bindEngineDataChannelEvents() {
+        peerDataStreamLinkChannel.on('data', (packetPayloadDataStream) => {
+            if (packetPayloadDataStream.type === 'c4_move') {
+                processInboundTokenDropSequence(packetPayloadDataStream.columnIndex, packetPayloadDataStream.senderIndex);
+                if (activeMatchplayLifecycleState) {
+                    isLocalPlayerTurnTurnActive = true;
+                    restartActiveChronoTurnTimerEngine();
+                }
+            } else if (packetPayloadDataStream.type === 'chrono_expiry_swap') {
+                processTurnTimeoutAlternationEvent();
+            } else if (packetPayloadDataStream.type === 'chat_broadcast') {
+                appendDispatchedMessageToTerminalHistory(packetPayloadDataStream.senderHandleName, packetPayloadDataStream.messageBodyText);
+            } else if (packetPayloadDataStream.type === 'voice_broadcast') {
+                appendDispatchedMessageToTerminalHistory(packetPayloadDataStream.senderHandleName, "", true, packetPayloadDataStream.binaryAudioDataBuffer);
+            }
+        });
+
+        // DISCONNECTION FAULT MONITORING: PROCESS OPPONENT DEPARTURE IMMEDIATELY
+        peerDataStreamLinkChannel.on('close', () => {
+            processPeerDisconnectionEventFault();
+        });
+        
+        peerDataStreamLinkChannel.on('error', () => {
+            processPeerDisconnectionEventFault();
+        });
+    }
+
+    function processPeerDisconnectionEventFault() {
+        if (!activeMatchplayLifecycleState) return;
+        activeMatchplayLifecycleState = false;
+        clearInterval(turnCountTimerRefInterval);
+        
+        appendDispatchedMessageToTerminalHistory("System", "Opponent left the matrix. Connection severed.");
+        document.getElementById('postGameExitTrigger').style.display = "block";
+        
+        const indicatorBanner = document.getElementById('matchplayTurnIndicator');
+        indicatorBanner.innerText = "OPPONENT LEFT";
+        indicatorBanner.className = "turn-status-banner neutral-state";
+        document.getElementById('turnChronoProgressFillBar').style.transform = "scaleX(0)";
+    }
+
+    function engageActivePlaygroundInterface() {
+        activeMatchplayLifecycleState = true;
+        document.getElementById('lobbyAccessPanel').style.display = "none";
+        document.getElementById('activeMatchplayViewport').style.display = "flex";
+
+        restartActiveChronoTurnTimerEngine();
+        initializeMicrophoneAudioCaptureEngine();
+    }
+
+    /* ==========================================================================
+       10-SECOND TURN MATCH CLOCK RUNTIME ARCHITECTURE (AFK ASSURANCE PIPELINE)
+       ========================================================================== */
+    function restartActiveChronoTurnTimerEngine() {
+        clearInterval(turnCountTimerRefInterval);
+        if (!activeMatchplayLifecycleState) return;
+        
+        refreshTurnIndicatorUIElement();
+        currentChronoTicksElapsed = 0;
+        updateChronoProgressFillVisualLayer();
+        
+        turnCountTimerRefInterval = setInterval(() => {
+            currentChronoTicksElapsed += 0.1;
+            updateChronoProgressFillVisualLayer();
+            
+            if (currentChronoTicksElapsed >= MATCH_CHRONO_MAX_SECONDS_BOUND) {
+                clearInterval(turnCountTimerRefInterval);
+                if (isLocalPlayerTurnTurnActive) {
+                    executeChronoTimeoutAuthorityPassage();
+                }
+            }
+        }, 100);
+    }
+
+    function updateChronoProgressFillVisualLayer() {
+        const structuralProgressFillNode = document.getElementById('turnChronoProgressFillBar');
+        let scalePercentageRatio = 1 - (currentChronoTicksElapsed / MATCH_CHRONO_MAX_SECONDS_BOUND);
+        if (scalePercentageRatio < 0) scalePercentageRatio = 0;
+        structuralProgressFillNode.style.transform = `scaleX(${scalePercentageRatio})`;
+    }
+
+    function executeChronoTimeoutAuthorityPassage() {
+        isLocalPlayerTurnTurnActive = false;
+        
+        // Broadcast structural timeout transaction over the active link line
+        if (peerDataStreamLinkChannel) {
+            peerDataStreamLinkChannel.send({ type: 'chrono_expiry_swap' });
+        }
+        
+        processTurnTimeoutAlternationEvent();
+    }
+
+    function processTurnTimeoutAlternationEvent() {
+        appendDispatchedMessageToTerminalHistory("System", "Turn duration expired. Swapping matrix control.");
+        restartActiveChronoTurnTimerEngine();
+    }
+
+    function refreshTurnIndicatorUIElement() {
+        const visualBannerNode = document.getElementById('matchplayTurnIndicator');
+        if (isLocalPlayerTurnTurnActive) {
+            visualBannerNode.innerText = "Your System Turn";
+            visualBannerNode.className = "turn-status-banner local-turn";
+        } else {
+            visualBannerNode.innerText = "Opponent Control";
+            visualBannerNode.className = "turn-status-banner remote-turn";
+        }
+    }
+
+    /* ==========================================================================
+       CONNECT 4 GAME MECHANICS MATRIX: MOVEMENT PIPELINE RULES AND LOGIC
+       ========================================================================== */
+    function executeLocalColumnSelectionAction(targetSelectedColumnIndex) {
+        if (!activeMatchplayLifecycleState || !isLocalPlayerTurnTurnActive) return;
+        
+        // Locate open slot scanning sequentially from deep row paths upward
+        let calculatedDestinationRowIndex = -1;
+        for (let r = GRID_ROWS_COUNT - 1; r >= 0; r--) {
+            if (connect4LogicalBoardArray[r][targetSelectedColumnIndex] === 0) {
+                calculatedDestinationRowIndex = r;
+                break;
+            }
+        }
+
+        // Column is entirely saturated with disks, ignore click actions safely
+        if (calculatedDestinationRowIndex === -1) return;
+
+        let activeLocalPlayerMarkerId = isPipelineEngineHost ? localPlayerIdentityMarkerIndex : remotePlayerIdentityMarkerIndex;
+        
+        // Commit immediately to internal operational arrays maps
+        processInboundTokenDropSequence(targetSelectedColumnIndex, activeLocalPlayerMarkerId);
+
+        // Package transaction metrics configuration packets to forward over link lines
+        const structuralMovePacketData = {
+            type: 'c4_move',
+            columnIndex: targetSelectedColumnIndex,
+            senderIndex: activeLocalPlayerMarkerId
+        };
+        
+        if (peerDataStreamLinkChannel) {
+            peerDataStreamLinkChannel.send(structuralMovePacketData);
+        }
+        
+        isLocalPlayerTurnTurnActive = false;
+        restartActiveChronoTurnTimerEngine();
+    }
+
+    function processInboundTokenDropSequence(targetColumnIndex, resolutionPlayerIdentifierMarker) {
+        let executionRowDestinationIndex = -1;
+        for (let r = GRID_ROWS_COUNT - 1; r >= 0; r--) {
+            if (connect4LogicalBoardArray[r][targetColumnIndex] === 0) {
+                executionRowDestinationIndex = r;
+                break;
+            }
+        }
+
+        if (executionRowDestinationIndex === -1) return;
+
+        // Trace token array modifications safely
+        connect4LogicalBoardArray[executionRowDestinationIndex][targetColumnIndex] = resolutionPlayerIdentifierMarker;
+        
+        // Execute modern visual updates tracking drop animations on grid assets
+        const visualTargetDiskNode = document.getElementById(`disk_coordinate_${executionRowDestinationIndex}_${targetColumnIndex}`);
+        
+        let localAssignedTokenMarkerId = isPipelineEngineHost ? localPlayerIdentityMarkerIndex : remotePlayerIdentityMarkerIndex;
+        
+        if (resolutionPlayerIdentifierMarker === localAssignedTokenMarkerId) {
+            visualTargetDiskNode.classList.add('local-color');
+        } else {
+            visualTargetDiskNode.classList.add('remote-color');
+        }
+        
+        // Trigger presentation layer transformations drop timelines animations
+        setTimeout(() => {
+            visualTargetDiskNode.classList.add('dropped');
+        }, 20);
+
+        executeGridSymmetryValidationScanning();
+    }
+
+    /* ==========================================================================
+       ALGORITHMIC SEARCH ROUTINES: NEON HIGHLIGHT LINE VECTOR GENERATOR ENGINE
+       ========================================================================== */
+    function renderConnectFourWinVectorHighlightLine(matchedTokenCoordinatesList) {
+        const traceCanvas = document.getElementById('victoryVectorOverlayCanvas');
+        const overlayContext = traceCanvas.getContext('2d');
+        
+        // Initialize mapping bounds scale layout matrix
+        const boundingLayoutBox = traceCanvas.getBoundingClientRect();
+        traceCanvas.width = boundingLayoutBox.width;
+        traceCanvas.height = boundingLayoutBox.height;
+        
+        // Extract endpoints coordinate matrices from verification loops
+        const primaryStartCoord = matchedTokenCoordinatesList[0];
+        const primaryEndCoord = matchedTokenCoordinatesList[3];
+        
+        const firstPhysicalCell = document.getElementById(`cell_coordinate_${primaryStartCoord.r}_${primaryStartCoord.c}`);
+        const finalPhysicalCell = document.getElementById(`cell_coordinate_${primaryEndCoord.r}_${primaryEndCoord.c}`);
+        
+        const gridBoxMetrics = document.getElementById('gameMatrixInteractiveGrid').getBoundingClientRect();
+        
+        const cellStartBounds = firstPhysicalCell.getBoundingClientRect();
+        const cellEndBounds = finalPhysicalCell.getBoundingClientRect();
+        
+        // Factor position vectors relative to parent canvas plane lines
+        const targetVectorX1 = (cellStartBounds.left + cellStartBounds.width / 2) - gridBoxMetrics.left - 8;
+        const targetVectorY1 = (cellStartBounds.top + cellStartBounds.height / 2) - gridBoxMetrics.top - 8;
+        const targetVectorX2 = (cellEndBounds.left + cellEndBounds.width / 2) - gridBoxMetrics.left - 8;
+        const targetVectorY2 = (cellEndBounds.top + cellEndBounds.height / 2) - gridBoxMetrics.top - 8;
+        
+        // Render glowing neon path tracks across winning grid rows elements
+        overlayContext.strokeStyle = '#00ffcc';
+        overlayContext.lineWidth = 6;
+        overlayContext.lineCap = 'round';
+        overlayContext.shadowBlur = 15;
+        overlayContext.shadowColor = '#00ffcc';
+        
+        overlayContext.beginPath();
+        overlayContext.moveTo(targetVectorX1, targetVectorY1);
+        overlayContext.lineTo(targetVectorX2, targetVectorY2);
+        overlayContext.stroke();
+    }
+
+    function executeGridSymmetryValidationScanning() {
+        let matchingResolutionWinnerFoundId = 0;
+        let identifiedWinningCoordinatesChain = [];
+
+        // 1. Horizontal Linear Check Arrays Matching
+        for (let r = 0; r < GRID_ROWS_COUNT; r++) {
+            for (let c = 0; c <= GRID_COLUMNS_COUNT - 4; c++) {
+                let checkMarkerValue = connect4LogicalBoardArray[r][c];
+                if (checkMarkerValue !== 0 &&
+                    checkMarkerValue === connect4LogicalBoardArray[r][c+1] &&
+                    checkMarkerValue === connect4LogicalBoardArray[r][c+2] &&
+                    checkMarkerValue === connect4LogicalBoardArray[r][c+3]) {
+                    matchingResolutionWinnerFoundId = checkMarkerValue;
+                    identifiedWinningCoordinatesChain = [{r,c}, {r,c:c+1}, {r,c:c+2}, {r,c:c+3}];
+                }
+            }
+        }
+
+        // 2. Vertical Linear Vector Verification Routines
+        for (let c = 0; c < GRID_COLUMNS_COUNT; c++) {
+            for (let r = 0; r <= GRID_ROWS_COUNT - 4; r++) {
+                let checkMarkerValue = connect4LogicalBoardArray[r][c];
+                if (checkMarkerValue !== 0 &&
+                    checkMarkerValue === connect4LogicalBoardArray[r+1][c] &&
+                    checkMarkerValue === connect4LogicalBoardArray[r+2][c] &&
+                    checkMarkerValue === connect4LogicalBoardArray[r+3][c]) {
+                    matchingResolutionWinnerFoundId = checkMarkerValue;
+                    identifiedWinningCoordinatesChain = [{r,c}, {r:r+1,c}, {r:r+2,c}, {r:r+3,c}];
+                }
+            }
+        }
+
+        // 3. Positive Diagonal Vector Matching Operations (Bottom-Left to Top-Right)
+        for (let r = 3; r < GRID_ROWS_COUNT; r++) {
+            for (let c = 0; c <= GRID_COLUMNS_COUNT - 4; c++) {
+                let checkMarkerValue = connect4LogicalBoardArray[r][c];
+                if (checkMarkerValue !== 0 &&
+                    checkMarkerValue === connect4LogicalBoardArray[r-1][c+1] &&
+                    checkMarkerValue === connect4LogicalBoardArray[r-2][c+2] &&
+                    checkMarkerValue === connect4LogicalBoardArray[r-3][c+3]) {
+                    matchingResolutionWinnerFoundId = checkMarkerValue;
+                    identifiedWinningCoordinatesChain = [{r,c}, {r:r-1,c:c+1}, {r:r-2,c:c+2}, {r:r-3,c:c+3}];
+                }
+            }
+        }
+
+        // 4. Negative Diagonal Vector Matrix Evaluation Routines (Top-Left to Bottom-Right)
+        for (let r = 0; r <= GRID_ROWS_COUNT - 4; r++) {
+            for (let c = 0; c <= GRID_COLUMNS_COUNT - 4; c++) {
+                let checkMarkerValue = connect4LogicalBoardArray[r][c];
+                if (checkMarkerValue !== 0 &&
+                    checkMarkerValue === connect4LogicalBoardArray[r+1][c+1] &&
+                    checkMarkerValue === connect4LogicalBoardArray[r+2][c+2] &&
+                    checkMarkerValue === connect4LogicalBoardArray[r+3][c+3]) {
+                    matchingResolutionWinnerFoundId = checkMarkerValue;
+                    identifiedWinningCoordinatesChain = [{r,c}, {r:r+1,c:c+1}, {r:r+2,c:c+2}, {r:r+3,c:c+3}];
+                }
+            }
+        }
+
+        // Check for complete grid deadlock condition state parameters
+        let isGridCompletelySaturatedWithDisks = true;
+        for (let r = 0; r < GRID_ROWS_COUNT; r++) {
+            for (let c = 0; c < GRID_COLUMNS_COUNT; c++) {
+                if (connect4LogicalBoardArray[r][c] === 0) {
+                    isGridCompletelySaturatedWithDisks = false;
+                }
+            }
+        }
+
+        // Handle termination game loop rules processing flags metrics
+        if (matchingResolutionWinnerFoundId !== 0) {
+            activeMatchplayLifecycleState = false;
+            clearInterval(turnCountTimerRefInterval);
+            
+            let localAssignedTokenMarkerId = isPipelineEngineHost ? localPlayerIdentityMarkerIndex : remotePlayerIdentityMarkerIndex;
+            const uiBannerNode = document.getElementById('matchplayTurnIndicator');
+            
+            if (matchingResolutionWinnerFoundId === localAssignedTokenMarkerId) {
+                uiBannerNode.innerText = "VICTORY";
+                uiBannerNode.className = "turn-status-banner local-turn";
+            } else {
+                uiBannerNode.innerText = "OPPONENT WIN";
+                uiBannerNode.className = "turn-status-banner remote-turn";
+            }
+            
+            document.getElementById('turnChronoProgressFillBar').style.transform = "scaleX(0)";
+            document.getElementById('postGameExitTrigger').style.display = "block";
+            
+            // DRAW HIGHLIGHT VECTOR TRACE PATH TO CLEAR WIN AREA IMMEDIATELY
+            renderConnectFourWinVectorHighlightLine(identifiedWinningCoordinatesChain);
+            
+        } else if (isGridCompletelySaturatedWithDisks) {
+            activeMatchplayLifecycleState = false;
+            clearInterval(turnCountTimerRefInterval);
+            
+            const uiBannerNode = document.getElementById('matchplayTurnIndicator');
+            uiBannerNode.innerText = "GRID DEADLOCK DRAW";
+            uiBannerNode.className = "turn-status-banner neutral-state";
+            
+            document.getElementById('turnChronoProgressFillBar').style.transform = "scaleX(0)";
+            document.getElementById('postGameExitTrigger').style.display = "block";
+        }
+    }
+
+    /* ==========================================================================
+       REALTIME COMMS NETWORKS: COMMUNICATIONS MANAGEMENT PIPELINES
+       ========================================================================= */
+    function executeTextMessageTransmission() {
+        const inputElementReference = document.getElementById('textMessagePayloadInputField');
+        const processingMessageTextContent = inputElementReference.value.trim();
+        
+        if (!processingMessageTextContent || !peerDataStreamLinkChannel) return;
+
+        const bundledChatPayloadDataPacket = {
+            type: 'chat_broadcast',
+            messageBodyText: processingMessageTextContent,
+            senderHandleName: localPlayerAliasSignature
+        };
+        
+        peerDataStreamLinkChannel.send(bundledChatPayloadDataPacket);
+        
+        appendDispatchedMessageToTerminalHistory("You", processingMessageTextContent);
+        inputElementReference.value = "";
+    }
+
+    /* ==========================================================================
+       REWRITTEN BINARY AUDIO HANDSHAKE: PARSES BASE64 TO BLOB URL TO HEAR REMOTES
+       ========================================================================== */
+    function appendDispatchedMessageToTerminalHistory(senderLabelIdentity, messageBodyString, isVoiceMessageFlag = false, voiceAudioBase64StreamData = null) {
+        const structuralScrollContainerNode = document.getElementById('chatHistoryOutputContainer');
+        const targetedCommsMessageElementNode = document.createElement('div');
+
+        if (senderLabelIdentity === 'You') {
+            targetedCommsMessageElementNode.className = 'comms-message local-dispatch';
+        } else if (senderLabelIdentity === 'System') {
+            targetedCommsMessageElementNode.className = 'comms-message system-dispatch';
+        } else {
+            targetedCommsMessageElementNode.className = 'comms-message remote-dispatch';
+        }
+
+        if (isVoiceMessageFlag && voiceAudioBase64StreamData) {
+            const audioPlaybackTriggerButton = document.createElement('button');
+            audioPlaybackTriggerButton.style = "background:none; border:none; color:inherit; font:inherit; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:6px; padding:2px 0;";
+            audioPlaybackTriggerButton.innerHTML = `<span>▶ Listen</span> <span style="font-size:0.75rem; opacity:0.7;">(${senderLabelIdentity})</span>`;
+            
+            audioPlaybackTriggerButton.onclick = () => {
+                try {
+                    // SEPARATION EXTRACTOR FIX: Strips out data header blocks if present to isolate raw base64 arrays
+                    let binaryExtractionArray = voiceAudioBase64StreamData;
+                    if (binaryExtractionArray.includes(',')) {
+                        binaryExtractionArray = binaryExtractionArray.split(',')[1];
+                    }
+                    
+                    // Decode pure character bytes string array
+                    const dynamicByteCharacters = atob(binaryExtractionArray);
+                    const numbersBufferRepresentationArray = new Array(dynamicByteCharacters.length);
+                    
+                    for (let i = 0; i < dynamicByteCharacters.length; i++) {
+                        numbersBufferRepresentationArray[i] = dynamicByteCharacters.charCodeAt(i);
+                    }
+                    
+                    const binaryTargetDataView = new Uint8Array(numbersBufferRepresentationArray);
+                    // Generate clean structural object blob allocating exact mime configurations
+                    const contextualHydratedAudioBlob = new Blob([binaryTargetDataView], { type: 'audio/webm' });
+                    const secureContextLocalObjectUrl = URL.createObjectURL(contextualHydratedAudioBlob);
+                    
+                    const playbackAudioNode = new Audio(secureContextLocalObjectUrl);
+                    playbackAudioNode.play();
+                } catch (audioDecodingError) {
+                    console.error("Critical voice node stream compilation aborted:", audioDecodingError);
+                }
+            };
+            targetedCommsMessageElementNode.appendChild(audioPlaybackTriggerButton);
+        } else {
+            targetedCommsMessageElementNode.innerText = senderLabelIdentity === 'System' ? messageBodyString : `${senderLabelIdentity}: ${messageBodyString}`;
+        }
+        
+        structuralScrollContainerNode.appendChild(targetedCommsMessageElementNode);
+        structuralScrollContainerNode.scrollTop = structuralScrollContainerNode.scrollHeight;
+    }
+
+    /* ==========================================================================
+       MULTIMEDIA AUDIO RECORDING CAPTURE SYSTEM CODE MODULE ENGINE
+       ========================================================================== */
+    function initializeMicrophoneAudioCaptureEngine() {
+        const uiMicrophoneToggleButton = document.getElementById('microphoneAudioCaptureButton');
+        
+        const audioRecordingHardwareConstraints = {
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            }
+        };
+
+        navigator.mediaDevices.getUserMedia(audioRecordingHardwareConstraints)
+        .then(capturedAudioHardwareMediaStream => {
+            let optimalContainerMimeTypeOptions = { mimeType: 'audio/webm' };
+            if (!MediaRecorder.isTypeSupported('audio/webm')) {
+                if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                    optimalContainerMimeTypeOptions = { mimeType: 'audio/mp4' };
+                } else {
+                    optimalContainerMimeTypeOptions = {};
+                }
+            }
+
+            softwareMediaRecorderInstance = new MediaRecorder(capturedAudioHardwareMediaStream, optimalContainerMimeTypeOptions);
+            
+            softwareMediaRecorderInstance.ondataavailable = (streamEventPacket) => {
+                if (streamEventPacket.data && streamEventPacket.data.size > 0) {
+                    binaryAudioVoiceChunks.push(streamEventPacket.data);
+                }
+            };
+
+            softwareMediaRecorderInstance.onstop = () => {
+                const synthesizedAudioBlobPayload = new Blob(binaryAudioVoiceChunks, { 
+                    type: softwareMediaRecorderInstance.mimeType || 'audio/webm' 
+                });
+                binaryAudioVoiceChunks = [];
+                
+                const platformFileReaderProcessor = new FileReader();
+                platformFileReaderProcessor.readAsDataURL(synthesizedAudioBlobPayload);
+                platformFileReaderProcessor.onloadend = () => {
+                    if (peerDataStreamLinkChannel) {
+                        const compiledVoiceBroadcastDataPacket = {
+                            type: 'voice_broadcast',
+                            binaryAudioDataBuffer: platformFileReaderProcessor.result,
+                            senderHandleName: localPlayerAliasSignature
+                        };
+                        peerDataStreamLinkChannel.send(compiledVoiceBroadcastDataPacket);
+                        appendDispatchedMessageToTerminalHistory("You", "", true, platformFileReaderProcessor.result);
+                    }
+                };
+            };
+            
+            uiMicrophoneToggleButton.disabled = false;
+            
+            // Toggle recording execution loops on standard mouse/pointer events elements
+            uiMicrophoneToggleButton.addEventListener('click', (interactionEvent) => {
+                interactionEvent.preventDefault();
+                if (!isRecordingSessionActive) {
+                    binaryAudioVoiceChunks = [];
+                    softwareMediaRecorderInstance.start();
+                    isRecordingSessionActive = true;
+                    uiMicrophoneToggleButton.classList.add('recording-state');
+                } else {
+                    if (softwareMediaRecorderInstance.state === 'recording' || softwareMediaRecorderInstance.state === 'paused') {
+                        softwareMediaRecorderInstance.stop();
+                    }
+                    isRecordingSessionActive = false;
+                    uiMicrophoneToggleButton.classList.remove('recording-state');
+                }
+            });
+        })
+        .catch(hardwareInitializationError => {
+            console.warn("Audio pipeline access blocked:", hardwareInitializationError);
+            appendDispatchedMessageToTerminalHistory("System", "Comms line blocked: Mic hardware access denied.");
+            uiMicrophoneToggleButton.disabled = true;
+        });
+    }
+</script>
+
+</body>
+</html>
